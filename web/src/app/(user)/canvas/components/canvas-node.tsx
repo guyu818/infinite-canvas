@@ -12,6 +12,7 @@ import { CanvasResourceMentionTextarea } from "./canvas-resource-mention-textare
 import { CanvasNodeType, type CanvasNodeData, type Position } from "../types";
 import { isCanvasImageNodeType } from "../utils/canvas-panorama";
 import type { CanvasResourceReference } from "../utils/canvas-resource-references";
+import { getCanvasPluginNode } from "@/lib/canvas-plugin-registry";
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 const selectionBlue = "#2f80ff";
@@ -121,6 +122,8 @@ export const CanvasNode = React.memo(function CanvasNode({
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleDraft, setTitleDraft] = useState(data.title || "");
     const isGroup = data.type === CanvasNodeType.Group;
+    const pluginDefinition = data.type === CanvasNodeType.Plugin ? getCanvasPluginNode(data.metadata?.pluginType) : undefined;
+    const transparentPlugin = Boolean(pluginDefinition?.transparentBackground);
     const hasImageContent = isCanvasImageNodeType(data.type) && Boolean(data.metadata?.content);
     const hasVideoContent = data.type === CanvasNodeType.Video && Boolean(data.metadata?.content);
     const hasAudioContent = data.type === CanvasNodeType.Audio && Boolean(data.metadata?.content);
@@ -260,7 +263,7 @@ export const CanvasNode = React.memo(function CanvasNode({
             startTop: data.position.y,
             startWidth: data.width,
             startHeight: data.height,
-            keepRatio: (isCanvasImageNodeType(data.type) && !data.metadata?.freeResize) || data.type === CanvasNodeType.Video,
+            keepRatio: (isCanvasImageNodeType(data.type) && !data.metadata?.freeResize) || data.type === CanvasNodeType.Video || Boolean(pluginDefinition?.keepAspectRatio?.({ ...data, type: data.metadata?.pluginType || data.type })),
             ratio: (data.metadata?.naturalWidth || data.width) / (data.metadata?.naturalHeight || data.height || 1),
         };
         window.addEventListener("mousemove", handleResizeMove);
@@ -350,8 +353,8 @@ export const CanvasNode = React.memo(function CanvasNode({
             <div
                 className={`relative h-full w-full overflow-visible border ${isGroup ? "rounded-xl" : "rounded-3xl border-2"}`}
                 style={{
-                    background: isGroup ? theme.node.panel : hasImageContent || hasVideoContent ? "transparent" : theme.node.fill,
-                    borderColor: isGroup ? isGroupDropTarget || isActive ? selectionBlue : theme.node.stroke : hasImageContent ? imageBorderColor : isActive ? selectionBlue : isRelated ? theme.node.muted : theme.node.stroke,
+                    background: isGroup ? theme.node.panel : hasImageContent || hasVideoContent || transparentPlugin ? "transparent" : theme.node.fill,
+                    borderColor: isGroup ? isGroupDropTarget || isActive ? selectionBlue : theme.node.stroke : hasImageContent ? imageBorderColor : isActive ? selectionBlue : transparentPlugin ? "transparent" : isRelated ? theme.node.muted : theme.node.stroke,
                     boxShadow: isGroupDropTarget ? `0 0 0 2px ${selectionBlue}66` : isGroup && isSelected ? `0 0 0 1px ${selectionBlue}55` : isActive ? `0 0 0 1px ${selectionBlue}55` : isRelated && !isBatchChild ? `0 0 0 1px ${theme.node.muted}55, 0 18px 48px rgba(0,0,0,.14)` : undefined,
                 }}
                 onMouseDown={(event) => onMouseDown(event, data.id)}
@@ -382,7 +385,7 @@ export const CanvasNode = React.memo(function CanvasNode({
                     className={`relative flex h-full w-full items-center justify-center rounded-[inherit] ${isBatchRoot ? "overflow-visible" : "overflow-hidden"}`}
                     style={
                         {
-                            background: isGroup ? "transparent" : hasImageContent || hasVideoContent ? "transparent" : theme.node.fill,
+                            background: isGroup ? "transparent" : hasImageContent || hasVideoContent || transparentPlugin ? "transparent" : theme.node.fill,
                             "--batch-from-x": `${batchMotion?.x || 0}px`,
                             "--batch-from-y": `${batchMotion?.y || 0}px`,
                             "--batch-from-rotate": `${6 + (batchMotion?.index || 0) * 4}deg`,
@@ -436,7 +439,7 @@ export const CanvasNode = React.memo(function CanvasNode({
             {!referenceSelectionState && !isGroup ? (
                 <>
                     <ConnectionHandleDot side="left" visible={hovered || isSelected || isConnecting} onMouseDown={(event) => onConnectStart(event, data.id, "target")} />
-                    <ConnectionHandleDot side="right" visible={data.type !== CanvasNodeType.Config && (hovered || isSelected || isConnecting)} onMouseDown={(event) => onConnectStart(event, data.id, "source")} />
+                    <ConnectionHandleDot side="right" visible={data.type !== CanvasNodeType.Config && pluginDefinition?.hasSourceHandle !== false && (hovered || isSelected || isConnecting)} onMouseDown={(event) => onConnectStart(event, data.id, "source")} />
                 </>
             ) : null}
 
@@ -447,7 +450,7 @@ export const CanvasNode = React.memo(function CanvasNode({
 
 function NodeContent(props: NodeContentRendererProps) {
     if (props.node.type === CanvasNodeType.Group) return null;
-    if ((props.node.type === CanvasNodeType.Config || props.node.type === CanvasNodeType.Director) && props.renderNodeContent) return props.renderNodeContent(props.node);
+    if ((props.node.type === CanvasNodeType.Config || props.node.type === CanvasNodeType.Director || props.node.type === CanvasNodeType.Plugin) && props.renderNodeContent) return props.renderNodeContent(props.node);
     if (props.isBatchRoot) return props.node.type === CanvasNodeType.Panorama ? <PanoramaNodeContent {...props} /> : <ImageNodeContent {...props} />;
     if (props.node.metadata?.status === "loading" && (props.node.type !== CanvasNodeType.Text || !props.node.metadata.content)) return <LoadingContent node={props.node} theme={props.theme} now={props.now} />;
     if (props.node.metadata?.status === "error") return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} />;
@@ -464,6 +467,7 @@ const nodeContentRenderers = {
     [CanvasNodeType.Video]: VideoNodeContent,
     [CanvasNodeType.Audio]: AudioNodeContent,
     [CanvasNodeType.Director]: EmptyImageContent,
+    [CanvasNodeType.Plugin]: EmptyImageContent,
 } satisfies Partial<Record<CanvasNodeType, (props: NodeContentRendererProps) => ReactNode>>;
 
 function LoadingContent({ node, theme, now }: Pick<NodeContentRendererProps, "node" | "theme" | "now">) {

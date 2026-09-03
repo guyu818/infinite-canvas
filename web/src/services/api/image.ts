@@ -515,12 +515,17 @@ function withPromptGuard(config: AiConfig, prompt: string) {
 }
 
 function usesAccountProxy(config: AiConfig) {
-    const token = useUserStore.getState().token;
-    return config.channelMode === "remote" || (config.channelMode === "local" && Boolean(token));
+    return config.channelMode === "remote";
+}
+
+function usesLocalBackendProxy(config: AiConfig) {
+    const channel = localChannelForActiveModel(config);
+    return config.channelMode === "local" && channel?.protocol !== "gemini";
 }
 
 export function aiApiUrl(config: AiConfig, path: string) {
     if (usesAccountProxy(config)) return `/api/v1${path}`;
+    if (usesLocalBackendProxy(config)) return `/api/local-ai${path}`;
     const channel = localChannelForActiveModel(config);
     return buildApiUrl(channel?.baseUrl || config.baseUrl, path);
 }
@@ -535,13 +540,9 @@ export function aiHeaders(config: AiConfig, contentType?: string) {
             ...(contentType ? { "Content-Type": contentType } : {}),
         };
     }
-    if (token) {
-        const userChannelId = channelIdForActiveModel(config);
-        return {
-            Authorization: `Bearer ${token}`,
-            ...(userChannelId ? { "X-User-Model-Channel-ID": userChannelId } : {}),
-            ...(contentType ? { "Content-Type": contentType } : {}),
-        };
+    if (usesLocalBackendProxy(config)) {
+        const channel = localChannelForActiveModel(config);
+        return { Authorization: `Bearer ${channel?.apiKey || config.apiKey}`, "X-Local-AI-Base-URL": channel?.baseUrl || config.baseUrl, ...(contentType ? { "Content-Type": contentType } : {}) };
     }
     if (isGeminiConfig(config)) return geminiDirectHeaders(config);
     return {
@@ -1203,10 +1204,8 @@ export async function fetchImageModels(config: AiConfig) {
     if (isMiniMaxChannel(channel)) return [...miniMaxModels];
     if (isMimoChannel(channel || { baseUrl: config.baseUrl })) return [...mimoModels];
     try {
-        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
-            headers: {
-                Authorization: `Bearer ${config.apiKey}`,
-            },
+        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(aiApiUrl(config, "/models"), {
+            headers: aiHeaders(config),
             timeout: IMAGE_REQUEST_TIMEOUT_SECONDS * 1000,
         });
         return (response.data.data || [])

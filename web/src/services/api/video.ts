@@ -34,14 +34,18 @@ export class VideoRequestError extends Error {
 }
 
 function usesAccountProxy(config: AiConfig) {
-    const token = useUserStore.getState().token;
-    return config.channelMode === "remote" || (config.channelMode === "local" && Boolean(token));
+    return config.channelMode === "remote";
 }
 
 function aiApiUrl(config: AiConfig, path: string) {
     if (usesAccountProxy(config)) return `/api/v1${path}`;
+    if (usesLocalBackendProxy(config)) return `/api/local-ai${path}`;
     const channel = localChannelForActiveModel(config);
     return buildApiUrl(channel?.baseUrl || config.baseUrl, path);
+}
+
+function usesLocalBackendProxy(config: AiConfig) {
+    return config.channelMode === "local" && !isGeminiConfig(config) && !isMiniMaxH3Config(config, config.model || config.videoModel) && !isAgnesVideoModel(config.model || config.videoModel) && !directAIProviderForConfig(config);
 }
 
 function aiVideoPollUrl(config: AiConfig, model: string, id: string) {
@@ -80,9 +84,9 @@ function aiHeaders(config: AiConfig) {
     const token = useUserStore.getState().token;
     if (config.channelMode === "remote" && !token) throw new Error("请先登录后再使用云端渠道");
     if (config.channelMode === "remote") return { Authorization: `Bearer ${token}`, ...(channelIdForActiveModel(config) ? { "X-Model-Channel-ID": channelIdForActiveModel(config) } : {}) };
-    if (token) return { Authorization: `Bearer ${token}`, ...(channelIdForActiveModel(config) ? { "X-User-Model-Channel-ID": channelIdForActiveModel(config) } : {}) };
     if (isGeminiConfig(config)) return geminiDirectHeaders(config);
-    return { Authorization: `Bearer ${localChannelForActiveModel(config)?.apiKey || config.apiKey}` };
+    const channel = localChannelForActiveModel(config);
+    return { Authorization: `Bearer ${channel?.apiKey || config.apiKey}`, ...(usesLocalBackendProxy(config) ? { "X-Local-AI-Base-URL": channel?.baseUrl || config.baseUrl } : {}) };
 }
 
 function refreshRemoteUser(config: AiConfig) {

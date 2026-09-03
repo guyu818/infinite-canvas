@@ -1,24 +1,29 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { App, Button } from "antd";
-import { Download, FileUp, Plus } from "lucide-react";
+import { Cloud, Download, FileUp, Plug, Plus } from "lucide-react";
 
 import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
 import { setImageBlob } from "@/services/image-storage";
 import { CanvasDeleteProjectsDialog } from "./components/canvas-delete-projects-dialog";
 import { CanvasProjectCard } from "./components/canvas-project-card";
+import { CanvasWebDAVBackupModal } from "./components/canvas-webdav-backup-modal";
+import { CanvasPluginManagerModal } from "./components/canvas-plugin-manager-modal";
 import type { CanvasExportFile } from "./export-types";
 import { useCanvasStore } from "./stores/use-canvas-store";
 import { useCanvasUiStore } from "./stores/use-canvas-ui-store";
 import { exportCanvasProjects } from "./utils/canvas-export";
+import { readCanvasBackupArchive, restoreCanvasBackupRecords } from "./utils/canvas-backup-archive";
 
 export default function CanvasPage() {
     const { message } = App.useApp();
     const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
+    const [webdavOpen, setWebdavOpen] = useState(false);
+    const [pluginsOpen, setPluginsOpen] = useState(false);
     const hydrated = useCanvasStore((state) => state.hydrated);
     const projects = useCanvasStore((state) => state.projects);
     const createProject = useCanvasStore((state) => state.createProject);
@@ -33,6 +38,13 @@ export default function CanvasPage() {
     const importCanvas = async (file?: File) => {
         if (!file) return;
         try {
+            const backup = await readCanvasBackupArchive(file);
+            if (backup) {
+                backup.projects.forEach(importProject);
+                await restoreCanvasBackupRecords(backup);
+                message.success(`已恢复 ${backup.projects.length} 个画布、素材索引和生成记录`);
+                return;
+            }
             const zip = await readZip(file);
             const projectFile = zip.get("projects.json");
             if (!projectFile) throw new Error("missing projects.json");
@@ -80,6 +92,12 @@ export default function CanvasPage() {
                                 删除全部
                             </Button>
                         ) : null}
+                        <Button disabled={!hydrated} icon={<Cloud className="size-4" />} onClick={() => setWebdavOpen(true)}>
+                            WebDAV 备份
+                        </Button>
+                        <Button disabled={!hydrated} icon={<Plug className="size-4" />} onClick={() => setPluginsOpen(true)}>
+                            插件
+                        </Button>
                         <Button disabled={!hydrated} icon={<FileUp className="size-4" />} onClick={() => inputRef.current?.click()}>
                             导入画布
                         </Button>
@@ -110,6 +128,8 @@ export default function CanvasPage() {
 
             <input ref={inputRef} type="file" accept="application/zip,.zip" className="hidden" onChange={(event) => void importCanvas(event.target.files?.[0])} />
             <CanvasDeleteProjectsDialog />
+            <CanvasWebDAVBackupModal open={webdavOpen} projects={projects} onClose={() => setWebdavOpen(false)} onRestore={importCanvas} />
+            <CanvasPluginManagerModal open={pluginsOpen} onClose={() => setPluginsOpen(false)} />
         </main>
     );
 }

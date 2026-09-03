@@ -22,6 +22,7 @@ const (
 	youMindNanoBananaProRawBase  = "https://raw.githubusercontent.com/YouMind-OpenLab/awesome-nano-banana-pro-prompts/main"
 	xianyuAwesomeGptImage2RawBase = "https://raw.githubusercontent.com/xianyu110/awesome-gptimage2/main"
 	davidWuGptImage2RawBase      = "https://raw.githubusercontent.com/davidwuw0811-boop/awesome-gpt-image2-prompts/main"
+	promptRegistryRawBase        = "https://raw.githubusercontent.com/yukkcat/image-prompts/main/dist/sources"
 )
 
 var gptImage2CaseFiles = []string{"README.md", "cases/ad-creative.md", "cases/character.md", "cases/comparison.md", "cases/ecommerce.md", "cases/portrait.md", "cases/poster.md", "cases/ui.md"}
@@ -87,6 +88,8 @@ func SyncPromptCategory(category string) ([]model.PromptCategory, error) {
 
 func buildPromptCategory(category string) ([]model.Prompt, error) {
 	switch category {
+	case "banana-prompt-quicker", "freestylefly-gpt-image-2":
+		return buildRegistryPrompts(category)
 	case "gpt-image-2-prompts":
 		return buildGptImage2Prompts()
 	case "awesome-gpt-image":
@@ -103,6 +106,41 @@ func buildPromptCategory(category string) ([]model.Prompt, error) {
 		return buildDavidWuGptImage2Prompts()
 	}
 	return nil, errors.New("未知提示词分类")
+}
+
+type registryPrompt struct {
+	ID                 string   `json:"id"`
+	Title              string   `json:"title"`
+	Prompt             string   `json:"prompt"`
+	Description        string   `json:"description"`
+	CoverURL           string   `json:"coverUrl"`
+	ReferenceImageURLs []string `json:"referenceImageUrls"`
+	Tags               []string `json:"tags"`
+	CreatedAt          string   `json:"createdAt"`
+}
+
+func buildRegistryPrompts(category string) ([]model.Prompt, error) {
+	raw, err := fetchText(promptRegistryRawBase, category+".json")
+	if err != nil {
+		return nil, err
+	}
+	return parseRegistryPrompts(raw)
+}
+
+func parseRegistryPrompts(raw string) ([]model.Prompt, error) {
+	data := []registryPrompt{}
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		return nil, err
+	}
+	items := make([]model.Prompt, 0, len(data))
+	for _, item := range data {
+		if strings.TrimSpace(item.ID) == "" || strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Prompt) == "" {
+			continue
+		}
+		images := append([]string{item.CoverURL}, item.ReferenceImageURLs...)
+		items = append(items, model.Prompt{ID: item.ID, Title: item.Title, CoverURL: item.CoverURL, Prompt: item.Prompt, Tags: item.Tags, Preview: markdownPreview(images), CreatedAt: normalizePromptTime(item.CreatedAt), UpdatedAt: normalizePromptTime(item.CreatedAt)})
+	}
+	return items, nil
 }
 
 func fetchText(baseURL, file string) (string, error) {

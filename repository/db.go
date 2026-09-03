@@ -22,6 +22,8 @@ import (
 
 var promptCategories = []model.PromptCategory{
 	{Category: "system", Name: "系统", Description: "系统提示词分类"},
+	{Category: "banana-prompt-quicker", Name: "Banana Prompt Quicker", Description: "Banana Prompt Quicker 的图片提示词分类", GithubURL: "https://glidea.github.io/banana-prompt-quicker/", Remote: true},
+	{Category: "freestylefly-gpt-image-2", Name: "Freestylefly GPT Image 2", Description: "Freestylefly 的 GPT Image 2 提示词分类", GithubURL: "https://github.com/freestylefly/awesome-gpt-image-2", Remote: true},
 	{Category: "gpt-image-2-prompts", Name: "GPT Image 2 Prompts", Description: "TigerOWO 的 GPT Image 2 案例提示词分类", GithubURL: "https://github.com/tigerowo/awesome-gpt-image-2-prompts", Remote: true},
 	{Category: "awesome-gpt-image", Name: "Awesome GPT Image", Description: "ZeroLu 的中文 GPT Image 提示词分类", GithubURL: "https://github.com/ZeroLu/awesome-gpt-image", Remote: true},
 	{Category: "awesome-gpt4o-image-prompts", Name: "Awesome GPT4o Image Prompts", Description: "ImgEdify 的 GPT-4o 图像提示词分类", GithubURL: "https://github.com/ImgEdify/Awesome-GPT4o-Image-Prompts", Remote: true},

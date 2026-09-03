@@ -17,6 +17,7 @@ export enum CanvasNodeType {
     Video = "video",
     Audio = "audio",
     Director = "director",
+    Plugin = "plugin",
     Group = "group",
 }
 
@@ -105,6 +106,7 @@ export type CanvasNodeMetadata = {
     panoramaFinalPrompt?: string;
     panoramaProjection?: "equirectangular";
     directorProject?: unknown;
+    pluginType?: string;
 };
 
 export type CanvasDirectorPanorama = {

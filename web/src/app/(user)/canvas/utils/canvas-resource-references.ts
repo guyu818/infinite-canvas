@@ -2,6 +2,7 @@ import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { seedanceReferenceLabel } from "@/lib/seedance-video";
 import { CanvasNodeType, type CanvasAssistantReference, type CanvasConnection, type CanvasNodeData } from "../types";
 import { isCanvasImageNodeType } from "./canvas-panorama";
+import { getCanvasPluginNode } from "@/lib/canvas-plugin-registry";
 
 export type CanvasResourceKind = "image" | "video" | "audio" | "text";
 
@@ -17,6 +18,10 @@ export type CanvasResourceReference = {
 };
 
 export function assistantReferenceContentFromNode(node: CanvasNodeData): Partial<CanvasAssistantReference> | null {
+    const plugin = pluginResource(node);
+    if (plugin?.kind === "text" || plugin?.kind === "director") return plugin.text ? { text: plugin.text } : null;
+    if (plugin?.kind === "image" || plugin?.kind === "panorama") return plugin.url ? { dataUrl: plugin.url } : null;
+    if (plugin?.kind === "video" || plugin?.kind === "audio") return plugin.url ? { url: plugin.url } : null;
     const content = node.metadata?.content;
     if (node.type === CanvasNodeType.Text) {
         const text = content || node.metadata?.prompt;
@@ -87,8 +92,8 @@ function labelResourceNodes(nodes: CanvasNodeData[], active: boolean) {
                 kind,
                 label,
                 title: node.title || label,
-                previewUrl: node.metadata?.content,
-                text: node.type === CanvasNodeType.Text ? node.metadata?.content || node.metadata?.prompt : undefined,
+                previewUrl: pluginResource(node)?.url || node.metadata?.content,
+                text: pluginResource(node)?.text || (node.type === CanvasNodeType.Text ? node.metadata?.content || node.metadata?.prompt : undefined),
                 active,
             },
         ];
@@ -107,9 +112,18 @@ export function isCanvasReferenceNode(node: CanvasNodeData) {
 }
 
 function resourceKind(node: CanvasNodeData): CanvasResourceKind | null {
+    const plugin = pluginResource(node);
+    if (plugin?.kind === "panorama") return "image";
+    if (plugin?.kind === "director") return plugin.text ? "text" : null;
+    if (plugin?.kind === "image" || plugin?.kind === "video" || plugin?.kind === "audio" || plugin?.kind === "text") return plugin.kind;
     if (isCanvasImageNodeType(node.type) && node.metadata?.content) return "image";
     if (node.type === CanvasNodeType.Video && node.metadata?.content) return "video";
     if (node.type === CanvasNodeType.Audio && node.metadata?.content) return "audio";
     if (node.type === CanvasNodeType.Text && (node.metadata?.content || node.metadata?.prompt)) return "text";
     return null;
+}
+
+function pluginResource(node: CanvasNodeData) {
+    if (node.type !== CanvasNodeType.Plugin) return null;
+    return getCanvasPluginNode(node.metadata?.pluginType)?.resource?.({ ...node, type: node.metadata?.pluginType || node.type }) || null;
 }
