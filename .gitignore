@@ -1,6 +1,7 @@
 .next/
 out/
 node_modules/
+/plugins/canvas/**/dist/
 .env*
 !.env.example
 data/
