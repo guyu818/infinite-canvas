@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ChangeEvent as ReactChangeEvent, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
@@ -45,7 +45,8 @@ import { LocalCanvasAgentModal } from "../components/local-canvas-agent-modal";
 import { CanvasPluginNodeContent, CanvasPluginNodePanel, useCanvasPluginToolbarItems } from "../components/canvas-plugin-node-content";
 import type { CanvasPluginNodeDefinition } from "@/types/canvas-plugin";
 import { loadEnabledCanvasPlugins } from "@/lib/canvas-plugin-loader";
-import { getCanvasPluginNode } from "@/lib/canvas-plugin-registry";
+import { getCanvasPluginNode, getCanvasPluginRegistryVersion, subscribeCanvasPluginRegistry } from "@/lib/canvas-plugin-registry";
+import { listCanvasPluginAgentNodes } from "@/lib/canvas-plugin-agent";
 import { CanvasNodeContextMenu } from "../components/canvas-context-menu";
 import { CanvasNodeAngleDialog, type CanvasImageAngleParams } from "../components/canvas-node-angle-dialog";
 import { CanvasNodeCropDialog, type CanvasImageCropRect } from "../components/canvas-node-crop-dialog";
@@ -68,6 +69,7 @@ import { assistantReferenceContentFromNode, buildNodeMentionReferences, isCanvas
 import { buildCanvasAgentContext } from "../agent/canvas-agent-context";
 import type { CanvasAgentAction, CanvasAgentToolResult } from "../agent/canvas-agent-tools";
 import { applyLocalCanvasAgentOps } from "../agent/local-canvas-agent-ops";
+import { buildWhiteModelVideoOps } from "../utils/canvas-white-model-video";
 import {
     CanvasNodeType,
     type CanvasAgentConfig,
@@ -443,6 +445,7 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
     const connectionTargetNodeIdRef = useRef(connectionTargetNodeId);
     const selectionBoxRef = useRef(selectionBox);
 
+    const pluginRegistryVersion = useSyncExternalStore(subscribeCanvasPluginRegistry, getCanvasPluginRegistryVersion, () => 0);
     const localAgentSnapshot = useMemo(() => ({
         projectId,
         title: currentProject?.title || "未命名画布",
@@ -450,7 +453,8 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
         connections,
         selectedNodeIds: Array.from(selectedNodeIds),
         viewport,
-    }), [connections, currentProject?.title, nodes, projectId, selectedNodeIds, viewport]);
+        plugins: listCanvasPluginAgentNodes(),
+    }), [connections, currentProject?.title, nodes, pluginRegistryVersion, projectId, selectedNodeIds, viewport]);
     const applyLocalAgentOps = useCallback((ops: unknown) => {
         const current = {
             projectId,
@@ -459,6 +463,7 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
             connections: connectionsRef.current,
             selectedNodeIds: Array.from(selectedNodeIdsRef.current),
             viewport: viewportRef.current,
+            plugins: listCanvasPluginAgentNodes(),
         };
         const next = applyLocalCanvasAgentOps(current, ops);
         nodesRef.current = next.nodes;
@@ -4212,6 +4217,11 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
                     onAngle={(node) => setAngleNodeId(node.id)}
                     onViewImage={(node) => setPreviewNodeId(node.id)}
                     onReversePrompt={createImageReversePromptNodes}
+                    onCreateWhiteModelVideo={(node) => {
+                        const next = applyLocalAgentOps(buildWhiteModelVideoOps(node, `video-${nanoid()}`));
+                        setDialogNodeId(next.selectedNodeIds[0] || null);
+                        message.success("已创建白模视频节点，请确认模型和提示词后点击生成");
+                    }}
                     onRetry={(node) => void handleRetryNode(node)}
                     onToggleFreeResize={(node) => toggleNodeFreeResize(node.id)}
                     onDelete={(node) => deleteNodes(new Set([node.id]))}

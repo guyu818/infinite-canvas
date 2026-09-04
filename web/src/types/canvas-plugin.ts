@@ -15,6 +15,7 @@ export type CanvasPluginAi = {
 };
 
 export type CanvasPluginNodeToolbarItem = { id: string; title: string; label: string; icon: ReactNode; onClick: () => void; active?: boolean; danger?: boolean };
+export type CanvasPluginAgentAction = { id: string; title: string; description?: string; run: (node: CanvasPluginNodeData, input: Record<string, unknown>) => LocalCanvasAgentOp[] };
 
 export type CanvasPluginNodeContext = {
     node: CanvasPluginNodeData;
@@ -58,6 +59,7 @@ export type CanvasPluginNodeDefinition = {
     Content?: ComponentType<{ ctx: CanvasPluginNodeContext }>;
     Panel?: ComponentType<{ ctx: CanvasPluginNodeContext; onClose: () => void }>;
     toolbar?: (ctx: CanvasPluginNodeContext) => CanvasPluginNodeToolbarItem[];
+    agentActions?: CanvasPluginAgentAction[];
     onDoubleClick?: (ctx: CanvasPluginNodeContext) => boolean;
 };
 

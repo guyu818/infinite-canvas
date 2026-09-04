@@ -12,6 +12,7 @@ export type LocalCanvasAgentSnapshot = {
     connections: CanvasConnection[];
     selectedNodeIds: string[];
     viewport: ViewportTransform;
+    plugins?: Array<{ type: string; title: string; description?: string; defaultSize: { width: number; height: number }; actions: Array<{ id: string; title: string; description?: string }> }>;
 };
 
 export type LocalCanvasAgentToolCall = { requestId: string; name: string; input?: Record<string, unknown> };

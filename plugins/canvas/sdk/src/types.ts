@@ -250,6 +250,13 @@ export type CanvasNodeToolbarItem = {
     danger?: boolean;
 };
 
+export type CanvasPluginAgentAction = {
+    id: string;
+    title: string;
+    description?: string;
+    run: (node: CanvasNodeData, input: Record<string, unknown>) => CanvasAgentOp[];
+};
+
 export type CanvasNodeContentProps = { ctx: CanvasNodeContext };
 export type CanvasNodePanelProps = { ctx: CanvasNodeContext; onClose: () => void };
 
@@ -292,6 +299,8 @@ export type CanvasNodeDefinition = {
     Content?: ComponentType<CanvasNodeContentProps>;
     Panel?: ComponentType<CanvasNodePanelProps>; // 节点下方面板(自定义)
     toolbar?: (ctx: CanvasNodeContext) => CanvasNodeToolbarItem[];
+    // 可由 Codex 发现并在用户确认后执行的声明式节点动作。动作只返回画布指令，拿不到 API Key。
+    agentActions?: CanvasPluginAgentAction[];
     onDoubleClick?: (ctx: CanvasNodeContext) => boolean; // 返回 true 表示已处理
 };
 

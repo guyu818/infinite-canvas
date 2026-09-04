@@ -107,6 +107,8 @@ export type CanvasNodeMetadata = {
     panoramaProjection?: "equirectangular";
     directorProject?: unknown;
     pluginType?: string;
+    whiteModelSourceNodeId?: string;
+    [key: string]: unknown;
 };
 
 export type CanvasDirectorPanorama = {
