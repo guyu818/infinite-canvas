@@ -7,6 +7,8 @@ description: 当前已接入同步逻辑的第三方提示词仓库
 
 | 地址 | 状态 |
 | --- | --- |
+| https://glidea.github.io/banana-prompt-quicker/ | 已实现同步逻辑（标准化数据由 yukkcat/image-prompts 提供） |
+| https://github.com/freestylefly/awesome-gpt-image-2 | 已实现同步逻辑（标准化数据由 yukkcat/image-prompts 提供） |
 | https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts | 已实现同步逻辑 |
 | https://github.com/ZeroLu/awesome-gpt-image | 已实现同步逻辑 |
 | https://github.com/ImgEdify/Awesome-GPT4o-Image-Prompts | 已实现同步逻辑 |

@@ -35,12 +35,12 @@ type GeminiAudioResponse = { candidates?: Array<{ content?: { parts?: Array<{ in
 const grokTtsVoiceRequests = new Map<string, Promise<GrokTtsVoice[]>>();
 
 function usesAccountProxy(config: AiConfig) {
-    const token = useUserStore.getState().token;
-    return config.channelMode === "remote" || (config.channelMode === "local" && Boolean(token));
+    return config.channelMode === "remote";
 }
 
 function aiApiUrl(config: AiConfig, path: string) {
     if (usesAccountProxy(config)) return `/api/v1${path}`;
+    if (!isGeminiConfig(config)) return `/api/local-ai${path}`;
     const channel = localChannelForActiveModel(config);
     return buildApiUrl(channel?.baseUrl || config.baseUrl, path);
 }
@@ -54,16 +54,11 @@ function aiHeaders(config: AiConfig) {
             "Content-Type": "application/json",
         };
     }
-    if (token) {
-        return {
-            Authorization: `Bearer ${token}`,
-            ...(channelIdForActiveModel(config) ? { "X-User-Model-Channel-ID": channelIdForActiveModel(config) } : {}),
-            "Content-Type": "application/json",
-        };
-    }
     if (isGeminiConfig(config)) return geminiDirectHeaders(config);
+    const channel = localChannelForActiveModel(config);
     return {
-        Authorization: `Bearer ${localChannelForActiveModel(config)?.apiKey || config.apiKey}`,
+        Authorization: `Bearer ${channel?.apiKey || config.apiKey}`,
+        "X-Local-AI-Base-URL": channel?.baseUrl || config.baseUrl,
         "Content-Type": "application/json",
     };
 }
