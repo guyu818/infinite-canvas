@@ -266,6 +266,10 @@ export default definePlugin({
             description: "360° 全景查看器(上传 / AI 生成)",
             defaultSize: { width: 480, height: 300 },
             defaultMetadata: {},
+            agentActions: [
+                { id: "set-image", title: "设置全景图", description: "用 input.url 设置全景图片 URL 或 data URL", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { content: String(input.url || "") } }] },
+                { id: "clear-image", title: "清空全景图", run: (node) => [{ type: "update_node", id: node.id, metadata: { content: "" } }] },
+            ],
             minimapColor: "#0ea5e9",
             // 宿主自动提供「交互 ⇄ 移动」开关:默认移动(拖动节点),切到交互后可转全景视角
             interactionToggle: true,

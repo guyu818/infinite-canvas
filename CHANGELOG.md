@@ -2,6 +2,9 @@
 
 ## Unreleased
 
++ [新增] Codex 可发现、创建、更新画布插件节点并调用插件声明动作
++ [新增] 画布视频节点支持创建以源视频为参考的白模视频生成流程
+
 + [新增] 提示词仓库增加 Banana Prompt Quicker 与 Freestylefly GPT Image 2 后端同步来源，避免补充内容只存在于本机数据库
 
 + [新增] 接入本地 Canvas Agent、受信任画布节点插件与独立 WebDAV 画布备份恢复

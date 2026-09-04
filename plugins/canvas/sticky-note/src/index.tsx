@@ -142,7 +142,7 @@ function StickyNoteContent({ ctx }: CanvasNodeContentProps) {
 export default definePlugin({
     id: "sticky-note",
     name: "便利贴节点",
-    version: "1.1.0",
+    version: "1.1.1",
     description: "可自选颜色、双击编辑、拖动即可移动的便利贴",
     nodes: [
         {
@@ -152,6 +152,7 @@ export default definePlugin({
             description: "彩色便利贴",
             defaultSize: { width: 240, height: 200 },
             defaultMetadata: { content: "", pluginColor: DEFAULT_COLOR },
+            agentActions: [{ id: "set-note", title: "设置便利贴", description: "用 input.content 和可选 input.color 设置文字与颜色", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { content: String(input.content || ""), ...(typeof input.color === "string" ? { pluginColor: input.color } : {}) } }] }],
             minimapColor: "#f59e0b",
             // 纯记事节点:不弹出下方生成面板(默认会是「生成图片」的提示词面板)
             hidePanel: true,

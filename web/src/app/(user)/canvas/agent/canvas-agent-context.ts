@@ -4,6 +4,7 @@ import { isGeminiConfig, isGeminiTtsModel } from "@/lib/gemini";
 import { supportsVideoAudioGeneration } from "@/lib/video-model-capabilities";
 import { channelProtocolForConfig, type AiConfig } from "@/stores/use-config-store";
 import { CanvasNodeType, type CanvasAgentState, type CanvasConnection, type CanvasNodeData } from "../types";
+import { getCanvasPluginNode } from "@/lib/canvas-plugin-registry";
 
 export type CanvasAgentContextNode = {
     id: string;
@@ -21,6 +22,8 @@ export type CanvasAgentContextNode = {
     taskId?: string;
     error?: string;
     groupId?: string;
+    pluginType?: string;
+    pluginResource?: { kind: string; text?: string; url?: string } | null;
 };
 
 export type CanvasAgentContext = {
@@ -158,6 +161,7 @@ function summarizeNode(node: CanvasNodeData): CanvasAgentContextNode {
     const content = node.metadata?.content || "";
     const isText = node.type === CanvasNodeType.Text;
     const mediaUrl = !isText && content && !content.startsWith("data:") ? content : undefined;
+    const plugin = node.type === CanvasNodeType.Plugin ? getCanvasPluginNode(node.metadata?.pluginType) : undefined;
     return {
         id: node.id,
         type: node.type,
@@ -174,6 +178,8 @@ function summarizeNode(node: CanvasNodeData): CanvasAgentContextNode {
         taskId: mediaTaskId(node) || undefined,
         error: node.metadata?.errorDetails,
         groupId: node.metadata?.groupId,
+        pluginType: node.metadata?.pluginType,
+        pluginResource: plugin?.resource?.({ ...node, type: node.metadata?.pluginType || node.type }) || undefined,
     };
 }
 

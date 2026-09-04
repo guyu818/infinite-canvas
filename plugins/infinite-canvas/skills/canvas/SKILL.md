@@ -1,6 +1,6 @@
 ---
 name: canvas
-description: 操作 Infinite Canvas 当前网页画布，读取节点、选区、创建文本节点、创建生成流程、连接节点或触发生成。
+description: 操作 Infinite Canvas 当前网页画布及画布插件，读取节点、选区、创建内容与生成流程、连接节点并准备生成。
 ---
 
 # Infinite Canvas
@@ -15,6 +15,8 @@ description: 操作 Infinite Canvas 当前网页画布，读取节点、选区�
 - 创建生成内容优先用 `canvas_generate_text`、`canvas_generate_image`、`canvas_generate_video`、`canvas_generate_audio`。
 - 需要把提示词、配置和生成节点串成流程时，使用 `canvas_create_generation_flow` 或项目已有的流程工具。
 - 需要批量增删改、移动、连接节点或设置视口时，使用 `canvas_apply_ops`。
+- 操作画布插件前先用 `canvas_list_plugin_nodes` 获取已启用节点类型和动作；用 `canvas_create_plugin_node` 按插件默认值创建，用 `canvas_update_node` 修改通用字段，用 `canvas_invoke_plugin_action` 调用插件明确开放的动作。
+- 用户要求把已有视频转成白模/白膜/灰盒动作参考时，使用 `canvas_create_white_model_video`。该工具只创建并连线待生成视频节点，不会自动扣费生成。
 - 不要模拟鼠标点击，不要要求用户手动复制 JSON。
 - 写入画布的操作会由网页侧边栏做二次确认，按当前工具结果继续推进即可。
 

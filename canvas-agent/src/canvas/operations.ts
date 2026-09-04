@@ -4,7 +4,7 @@ import type { ToolName } from "./schemas.js";
 import { nextCanvasX } from "./tools.js";
 import type { CanvasNode, CanvasNodeType, CanvasSnapshot } from "./types.js";
 
-export type CanvasToolRequest = { name: "canvas_apply_ops"; input: Record<string, unknown> };
+export type CanvasToolRequest = { name: "canvas_apply_ops" | "canvas_create_plugin_node" | "canvas_invoke_plugin_action"; input: Record<string, unknown> };
 
 /** 将上层画布工具调用转换为前端可执行的批量操作。 */
 export function buildCanvasToolRequest(name: ToolName, input: Record<string, unknown>, state: CanvasSnapshot | null): CanvasToolRequest {
@@ -33,6 +33,8 @@ export function buildCanvasToolRequest(name: ToolName, input: Record<string, unk
     }
     if (name === "canvas_create_generation_flow") return applyOps(generationFlowOps(input, state));
     if (name === "canvas_create_director_video_storyboard") return applyOps(directorVideoStoryboardOps(input, state));
+    if (name === "canvas_create_white_model_video") return applyOps(whiteModelVideoOps(input, state));
+    if (name === "canvas_create_plugin_node" || name === "canvas_invoke_plugin_action") return { name, input };
     if (name === "canvas_generate_text" || name === "canvas_generate_image" || name === "canvas_generate_video" || name === "canvas_generate_audio") {
         return applyOps(generationFlowOps({ ...input, mode: name.replace("canvas_generate_", ""), autoRun: false }, state));
     }
@@ -67,6 +69,21 @@ export function buildCanvasToolRequest(name: ToolName, input: Record<string, unk
         return applyOps([{ type: "select_nodes", ids: [data.nodeId] }]);
     }
     throw new Error(`未知工具：${name}`);
+}
+
+const WHITE_MODEL_VIDEO_PROMPT = "严格保持参考视频的镜头运动、人物动作、节奏、构图和时长，将所有人物与场景转为纯白色无纹理的 3D 白模/灰盒预演风格。材质统一为哑光白色，不保留肤色、服装纹理、文字、品牌标识和复杂贴图；使用中性灰白环境、柔和工作室光照与清晰轮廓，画面稳定，人物数量、站位、动作轨迹和镜头切换不得改变。";
+
+function whiteModelVideoOps(input: Record<string, unknown>, state: CanvasSnapshot | null) {
+    const sourceId = String(input.videoNodeId || "");
+    const source = findNode(state, sourceId);
+    if (!source || source.type !== "video" || !source.metadata?.content) throw new Error("找不到已有内容的视频节点");
+    const id = `video-${crypto.randomUUID()}`;
+    const prompt = String(input.prompt || WHITE_MODEL_VIDEO_PROMPT);
+    return [
+        { type: "add_node", id, nodeType: "video", title: String(input.title || `${source.title || "视频"} 白模`), position: { x: Number(input.x ?? source.position.x + source.width + 96), y: Number(input.y ?? source.position.y) }, width: source.width, height: source.height, metadata: cleanRecord({ status: "idle", prompt, composerContent: prompt, seconds: input.seconds || source.metadata?.seconds, size: input.size || source.metadata?.size, model: input.model, whiteModelSourceNodeId: sourceId }) },
+        { type: "connect_nodes", fromNodeId: sourceId, toNodeId: id },
+        { type: "select_nodes", ids: [id] },
+    ];
 }
 
 /** 将导演台截图图片准备为视频首帧，生成仍由用户在网页中手动确认。 */

@@ -78,7 +78,7 @@ function SvgContent({ ctx }: CanvasNodeContentProps) {
 export default definePlugin({
     id: "svg",
     name: "SVG 节点",
-    version: "1.1.0",
+    version: "1.1.1",
     description: "透明背景渲染 SVG 矢量图,可接收上游文本节点的 SVG 源码",
     nodes: [
         {
@@ -88,6 +88,7 @@ export default definePlugin({
             description: "渲染 SVG 矢量图",
             defaultSize: { width: 320, height: 320 },
             defaultMetadata: {},
+            agentActions: [{ id: "set-content", title: "设置 SVG", description: "用 input.content 替换 SVG 源码", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { content: String(input.content || "") } }] }],
             minimapColor: "#14b8a6",
             // 背景/边框透明,矢量图直接融入画布
             transparentBackground: true,

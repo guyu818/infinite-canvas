@@ -445,9 +445,10 @@ export class CanvasSession {
             if (!this.clients.size) throw new Error("当前没有已连接网页");
             return await this.requestCanvasTool(name, input);
         }
-        const readTool = ["canvas_get_state", "canvas_get_selection", "canvas_export_snapshot"].includes(name);
+        const readTool = ["canvas_get_state", "canvas_get_selection", "canvas_export_snapshot", "canvas_list_plugin_nodes"].includes(name);
         if (readTool && (!this.clients.size || !this.canvasState)) throw new Error("当前没有已连接画布");
         if (name === "canvas_get_state" || name === "canvas_export_snapshot") return compactCanvasState(this.canvasState);
+        if (name === "canvas_list_plugin_nodes") return { plugins: this.canvasState?.plugins || [] };
         if (name === "canvas_get_selection") {
             const ids = new Set(this.canvasState?.selectedNodeIds || []);
             return { nodes: (this.canvasState?.nodes || []).filter((node) => ids.has(node.id)).map(compactNode) };

@@ -103,7 +103,7 @@ function HtmlContent({ ctx }: CanvasNodeContentProps) {
 export default definePlugin({
     id: "html",
     name: "HTML 节点",
-    version: "1.2.0",
+    version: "1.2.1",
     description: "沙箱 iframe 渲染 HTML,支持 {{input}} 注入上游文本",
     nodes: [
         {
@@ -113,6 +113,10 @@ export default definePlugin({
             description: "沙箱渲染 HTML",
             defaultSize: { width: 420, height: 320 },
             defaultMetadata: { content: "" },
+            agentActions: [
+                { id: "set-content", title: "设置 HTML", description: "用 input.content 替换 HTML 内容", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { content: String(input.content || ""), editing: false } }] },
+                { id: "set-editing", title: "切换编辑状态", description: "用 input.editing 控制源码编辑状态", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { editing: Boolean(input.editing) } }] },
+            ],
             minimapColor: "#ec4899",
             hidePanel: true, // 纯展示型节点:点击/新建不弹出下方生图面板
             // 宿主统一提供「交互 ⇄ 移动」开关;编辑态强制可交互(编辑器始终可操作)并隐藏该开关

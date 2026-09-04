@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 
 import { DEFAULT_LOCAL_CANVAS_AGENT_URL, LocalCanvasAgentClient, type LocalCanvasAgentSnapshot, type LocalCanvasAgentToolCall } from "@/services/local-canvas-agent";
 import { summarizeLocalCanvasAgentOps } from "../agent/local-canvas-agent-ops";
+import { buildCanvasPluginActionOps, buildCanvasPluginCreateOps } from "@/lib/canvas-plugin-agent";
 
 const URL_KEY = "infinite-canvas:local-agent-url";
 const TOKEN_KEY = "infinite-canvas:local-agent-token";
@@ -41,7 +42,20 @@ export function LocalCanvasAgentModal({ open, snapshot, onClose, onApplyOps }: {
             const selected = new Set(snapshotRef.current.selectedNodeIds);
             return void client.reply(call.requestId, { nodes: snapshotRef.current.nodes.filter((node) => selected.has(node.id)), selectedNodeIds: [...selected] });
         }
-        const ops = call.input?.ops;
+        let ops: unknown = call.input?.ops;
+        try {
+            if (call.name === "canvas_create_plugin_node") {
+                const input = call.input || {};
+                ops = buildCanvasPluginCreateOps(String(input.pluginType || ""), input as Parameters<typeof buildCanvasPluginCreateOps>[1]);
+            } else if (call.name === "canvas_invoke_plugin_action") {
+                const input = call.input || {};
+                const node = snapshotRef.current.nodes.find((item) => item.id === input.nodeId);
+                if (!node) throw new Error("找不到插件节点");
+                ops = buildCanvasPluginActionOps(node, String(input.actionId || ""), (input.input || {}) as Record<string, unknown>);
+            }
+        } catch (error) {
+            return void client.reply(call.requestId, undefined, error instanceof Error ? error.message : "插件操作失败");
+        }
         if (!Array.isArray(ops)) return void client.reply(call.requestId, undefined, `目标项目暂不支持本地 Agent 工具：${call.name}`);
         modal.confirm({
             title: "允许本地 Agent 修改画布？",

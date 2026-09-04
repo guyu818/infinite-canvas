@@ -56,3 +56,23 @@ test("generate tools only prepare workflows and never auto-run paid generation",
     const ops = request.input.ops as Array<Record<string, unknown>>;
     assert.equal(ops.some((op) => op.type === "run_generation"), false);
 });
+
+test("video source creates a white-model video workflow without starting generation", () => {
+    const state = snapshot([
+        { id: "video-1", type: "video", title: "动作参考", position: { x: 10, y: 20 }, width: 480, height: 270, metadata: { content: "https://example.test/source.mp4", seconds: "8", size: "16:9" } },
+    ], []);
+    const request = buildCanvasToolRequest("canvas_create_white_model_video", { videoNodeId: "video-1" }, state);
+    const ops = request.input.ops as Array<Record<string, unknown>>;
+    assert.equal(ops.some((op) => op.type === "run_generation"), false);
+    assert.equal(ops[0].nodeType, "video");
+    assert.equal((ops[0].metadata as Record<string, unknown>).whiteModelSourceNodeId, "video-1");
+    assert.match(String((ops[0].metadata as Record<string, unknown>).prompt), /白色无纹理/);
+    assert.deepEqual(ops[1], { type: "connect_nodes", fromNodeId: "video-1", toNodeId: ops[0].id });
+});
+
+test("plugin tools preserve frontend dispatch and validate plugin identifiers", () => {
+    assert.equal(toolInputSchemas.canvas_create_plugin_node.parse({ pluginType: "markdown:doc" }).pluginType, "markdown:doc");
+    assert.equal(toolInputSchemas.canvas_invoke_plugin_action.parse({ nodeId: "plugin-1", actionId: "set-content", input: { content: "hello" } }).actionId, "set-content");
+    assert.deepEqual(buildCanvasToolRequest("canvas_create_plugin_node", { pluginType: "markdown:doc" }, null), { name: "canvas_create_plugin_node", input: { pluginType: "markdown:doc" } });
+    assert.deepEqual(buildCanvasToolRequest("canvas_invoke_plugin_action", { nodeId: "plugin-1", actionId: "set-content", input: { content: "hello" } }, null), { name: "canvas_invoke_plugin_action", input: { nodeId: "plugin-1", actionId: "set-content", input: { content: "hello" } } });
+});

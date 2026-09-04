@@ -67,7 +67,7 @@ function MarkdownContent({ ctx }: CanvasNodeContentProps) {
 export default definePlugin({
     id: "markdown",
     name: "Markdown 节点",
-    version: "1.1.0",
+    version: "1.1.1",
     description: "在画布中编辑与渲染 Markdown",
     css,
     nodes: [
@@ -84,6 +84,10 @@ export default definePlugin({
             interactionToggle: true,
             forceInteractive: (node) => Boolean(node.metadata?.editing),
             resource: (node) => ({ kind: "text", text: node.metadata?.content }),
+            agentActions: [
+                { id: "set-content", title: "设置 Markdown", description: "用 input.content 替换 Markdown 内容", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { content: String(input.content || ""), editing: false } }] },
+                { id: "set-editing", title: "切换编辑状态", description: "用 input.editing 控制源码编辑状态", run: (node, input) => [{ type: "update_node", id: node.id, metadata: { editing: Boolean(input.editing) } }] },
+            ],
             Content: MarkdownContent,
             // 仅保留「编辑/预览」开关(状态存 metadata.editing);交互/移动 由宿主自动注入
             toolbar: (ctx) => {
