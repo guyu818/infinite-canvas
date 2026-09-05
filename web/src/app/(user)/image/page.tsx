@@ -4,6 +4,7 @@ import {
     AlertCircle,
     BookOpen,
     CheckSquare,
+    Clapperboard,
     ChevronDown,
     ChevronUp,
     ClipboardPaste,
@@ -25,7 +26,7 @@ import {
     Upload,
     WandSparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { App, Button, Checkbox, Drawer, Empty, Image, Input, Modal, Segmented, Tag, Typography } from "antd";
 import localforage from "localforage";
 import { saveAs } from "file-saver";
@@ -51,6 +52,7 @@ import { deleteStoredImages, imageToDataUrl, resolveImageUrl, uploadImage, uploa
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useUserStore } from "@/stores/use-user-store";
 import type { ReferenceImage } from "@/types/image";
+import { StoryboardStudio, type StoryboardCandidate } from "./storyboard-studio";
 
 type GeneratedImage = {
     id: string;
@@ -153,6 +155,7 @@ export default function ImagePage() {
     const [promptDialogOpen, setPromptDialogOpen] = useState(false);
     const [assetPickerOpen, setAssetPickerOpen] = useState(false);
     const [workflowDrawerOpen, setWorkflowDrawerOpen] = useState(false);
+    const [storyboardDrawerOpen, setStoryboardDrawerOpen] = useState(false);
     const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
     const [previewLog, setPreviewLog] = useState<GenerationLog | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -171,6 +174,10 @@ export default function ImagePage() {
     const generationCount = Math.max(1, Math.min(10, Number(config.count) || 1));
     const pendingCount = results.filter((item) => item.status === "pending").length;
     const pendingLogCount = logs.filter((log) => log.status === "生成中" && log.task && !log.images.length).length;
+    const storyboardCandidates = useMemo<StoryboardCandidate[]>(
+        () => logs.flatMap((log) => log.images.flatMap((image, index) => image.dataUrl ? [{ id: image.id, title: `${log.title || "生成结果"} · 镜头 ${index + 1}`, previewUrl: image.dataUrl }] : [])).slice(0, 24),
+        [logs],
+    );
     const usesBackendImageTasks = (value: AiConfig) => value.channelMode === "remote" || (value.channelMode === "local" && Boolean(token));
     const imageTaskConfig = () => effectiveConfigRef.current;
 
@@ -397,6 +404,28 @@ export default function ImagePage() {
         if (!snapshot) return;
         setPrompt("");
         await submitGenerationBatch(snapshot);
+    };
+
+    const generateStoryboard = async (storyboardPrompt: string) => {
+        const snapshot = buildRequestSnapshot({ promptText: storyboardPrompt, taskCount: 1 });
+        if (!snapshot) return false;
+        setPrompt("");
+        setStoryboardDrawerOpen(false);
+        await submitGenerationBatch(snapshot);
+        return true;
+    };
+
+    const resolveStoryboardCandidate = async (id: string) => {
+        const image = logs.flatMap((log) => log.images).find((item) => item.id === id);
+        if (!image) throw new Error("没有找到这张生成图片");
+        return imageToDataUrl(image);
+    };
+
+    const useStoryboardCollage = async (dataUrl: string, width: number, height: number) => {
+        const stored = await uploadImage(dataUrl);
+        setReferences((value) => [...value, { id: nanoid(), name: "storyboard.png", type: stored.mimeType || "image/png", dataUrl: stored.url, storageKey: stored.storageKey, source: "result", temporary: false }]);
+        setStoryboardDrawerOpen(false);
+        message.success(`故事板 ${width}×${height} 已加入参考图`);
     };
 
     const retryLog = async (log: GenerationLog) => {
@@ -1111,6 +1140,7 @@ export default function ImagePage() {
                             updateConfig={updateConfig}
                             openConfigDialog={openConfigDialog}
                             onLayoutChange={setWorkbenchLayout}
+                            onOpenStoryboard={() => setStoryboardDrawerOpen(true)}
                             onPromptChange={setPrompt}
                             onOpenPromptLibrary={() => setPromptDialogOpen(true)}
                             onOpenAssetPicker={() => setAssetPickerOpen(true)}
@@ -1202,6 +1232,7 @@ export default function ImagePage() {
                             updateConfig={updateConfig}
                             openConfigDialog={openConfigDialog}
                             onLayoutChange={setWorkbenchLayout}
+                            onOpenStoryboard={() => setStoryboardDrawerOpen(true)}
                             onPromptChange={setPrompt}
                             onOpenPromptLibrary={() => setPromptDialogOpen(true)}
                             onOpenAssetPicker={() => setAssetPickerOpen(true)}
@@ -1258,6 +1289,19 @@ export default function ImagePage() {
                     }}
                 />
             </Drawer>
+            <Drawer title={null} placement="right" size="min(1180px, 96vw)" open={storyboardDrawerOpen} onClose={() => setStoryboardDrawerOpen(false)} styles={{ body: { padding: 0 } }} destroyOnHidden={false}>
+                <StoryboardStudio
+                    candidates={storyboardCandidates}
+                    onResolveCandidate={resolveStoryboardCandidate}
+                    onApplyPrompt={(storyboardPrompt) => {
+                        setPrompt(storyboardPrompt);
+                        setStoryboardDrawerOpen(false);
+                        message.success("故事板提示词已填入生图工作台");
+                    }}
+                    onGenerate={generateStoryboard}
+                    onUseCollage={useStoryboardCollage}
+                />
+            </Drawer>
             <input
                 ref={fileInputRef}
                 type="file"
@@ -1297,6 +1341,7 @@ function WorkbenchPanel({
     updateConfig,
     openConfigDialog,
     onLayoutChange,
+    onOpenStoryboard,
     onPromptChange,
     onOpenPromptLibrary,
     onOpenAssetPicker,
@@ -1319,6 +1364,7 @@ function WorkbenchPanel({
     updateConfig: UpdateAiConfig;
     openConfigDialog: (shouldPromptContinue?: boolean) => void;
     onLayoutChange: (layout: WorkbenchLayout) => void;
+    onOpenStoryboard: () => void;
     onPromptChange: (value: string) => void;
     onOpenPromptLibrary: () => void;
     onOpenAssetPicker: () => void;
@@ -1351,6 +1397,7 @@ function WorkbenchPanel({
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                 <Button title="清空输入" icon={<Trash2 className="size-4" />} onClick={onClearPrompt} />
                                 <Button title="提示词库" icon={<BookOpen className="size-4" />} onClick={onOpenPromptLibrary} />
+                                <Button title="故事板" icon={<Clapperboard className="size-4" />} onClick={onOpenStoryboard}>故事板</Button>
                                 <Button title="我的素材" icon={<FolderPlus className="size-4" />} onClick={onOpenAssetPicker} />
                                 <Button
                                     title="参数配置"
@@ -1415,7 +1462,7 @@ function WorkbenchPanel({
     return (
         <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-stone-200 bg-card shadow-sm dark:border-stone-800 lg:min-h-0">
             <div className="shrink-0 p-4 pb-3">
-                <WorkbenchHeader currentLayout={currentLayout} onLayoutChange={onLayoutChange} />
+                <WorkbenchHeader currentLayout={currentLayout} onLayoutChange={onLayoutChange} onOpenStoryboard={onOpenStoryboard} />
             </div>
             <div className="thin-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-3">
                 <section className="overflow-hidden rounded-lg border border-stone-200 bg-background dark:border-stone-800">
@@ -1461,19 +1508,22 @@ function WorkbenchPanel({
     );
 }
 
-function WorkbenchHeader({ currentLayout, onLayoutChange, compact = false }: { currentLayout: WorkbenchLayout; onLayoutChange: (layout: WorkbenchLayout) => void; compact?: boolean }) {
+function WorkbenchHeader({ currentLayout, onLayoutChange, onOpenStoryboard, compact = false }: { currentLayout: WorkbenchLayout; onLayoutChange: (layout: WorkbenchLayout) => void; onOpenStoryboard: () => void; compact?: boolean }) {
     return (
         <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
                 <h1 className={`${compact ? "text-base" : "text-2xl"} font-semibold text-stone-950 dark:text-stone-100`}>生图工作台</h1>
             </div>
-            <div className="flex shrink-0 rounded-lg border border-stone-200 bg-stone-50 p-1 dark:border-stone-800 dark:bg-stone-900">
-                <Button size="small" type={currentLayout === "side" ? "primary" : "text"} icon={<PanelLeft className="size-3.5" />} onClick={() => onLayoutChange("side")}>
-                    侧边
-                </Button>
-                <Button size="small" type={currentLayout === "bottom" ? "primary" : "text"} icon={<PanelBottom className="size-3.5" />} onClick={() => onLayoutChange("bottom")}>
-                    底部
-                </Button>
+            <div className="flex shrink-0 items-center gap-2">
+                <Button size="small" type="primary" icon={<Clapperboard className="size-3.5" />} onClick={onOpenStoryboard}>故事板</Button>
+                <div className="flex rounded-lg border border-stone-200 bg-stone-50 p-1 dark:border-stone-800 dark:bg-stone-900">
+                    <Button size="small" type={currentLayout === "side" ? "primary" : "text"} icon={<PanelLeft className="size-3.5" />} onClick={() => onLayoutChange("side")}>
+                        侧边
+                    </Button>
+                    <Button size="small" type={currentLayout === "bottom" ? "primary" : "text"} icon={<PanelBottom className="size-3.5" />} onClick={() => onLayoutChange("bottom")}>
+                        底部
+                    </Button>
+                </div>
             </div>
         </div>
     );
