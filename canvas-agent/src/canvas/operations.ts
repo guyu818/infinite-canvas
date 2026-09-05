@@ -34,6 +34,7 @@ export function buildCanvasToolRequest(name: ToolName, input: Record<string, unk
     if (name === "canvas_create_generation_flow") return applyOps(generationFlowOps(input, state));
     if (name === "canvas_create_director_video_storyboard") return applyOps(directorVideoStoryboardOps(input, state));
     if (name === "canvas_create_white_model_video") return applyOps(whiteModelVideoOps(input, state));
+    if (name === "canvas_create_reference_video_tvc") return applyOps(referenceVideoTvcOps(input, state));
     if (name === "canvas_create_plugin_node" || name === "canvas_invoke_plugin_action") return { name, input };
     if (name === "canvas_generate_text" || name === "canvas_generate_image" || name === "canvas_generate_video" || name === "canvas_generate_audio") {
         return applyOps(generationFlowOps({ ...input, mode: name.replace("canvas_generate_", ""), autoRun: false }, state));
@@ -84,6 +85,54 @@ function whiteModelVideoOps(input: Record<string, unknown>, state: CanvasSnapsho
         { type: "connect_nodes", fromNodeId: sourceId, toNodeId: id },
         { type: "select_nodes", ids: [id] },
     ];
+}
+
+/** 用真实参考视频和用户商品素材准备 TVC 复刻流程，生成仍由用户在网页中确认。 */
+function referenceVideoTvcOps(input: Record<string, unknown>, state: CanvasSnapshot | null) {
+    const sourceId = String(input.videoNodeId || "");
+    const source = findNode(state, sourceId);
+    if (!source || source.type !== "video" || !source.metadata?.content) throw new Error("找不到已有内容的参考视频节点");
+    const productNodeIds = stringIds(input.productNodeIds);
+    if (!productNodeIds.length) throw new Error("TVC 复刻至少需要一张用户商品图");
+    productNodeIds.forEach((id) => {
+        const node = findNode(state, id);
+        if (!node || (node.type !== "image" && node.type !== "panorama") || !node.metadata?.content) throw new Error(`商品图节点不可用：${id}`);
+    });
+    const characterNodeIds = validateReferenceNodes(input.characterNodeIds, state, ["image", "panorama"], "人物参考");
+    const sceneNodeIds = validateReferenceNodes(input.sceneNodeIds, state, ["image", "panorama"], "场景参考");
+    const audioNodeIds = validateReferenceNodes(input.audioNodeIds, state, ["audio"], "音频参考");
+    const prompt = String(input.prompt || "").trim();
+    const productInfo = String(input.productInfo || "").trim();
+    if (!prompt) throw new Error("缺少基于参考片证据整理的完整 TVC 提示词");
+    if (!productInfo) throw new Error("缺少商品名称、SKU、颜色、尺寸和适配关系");
+    const scope = String(input.scope || "完整复刻");
+    const platform = String(input.platform || "未指定平台");
+    const audioSubtitle = String(input.audioSubtitle || "保留原片旁白和字幕");
+    const approximation = input.allowApproximate === true ? "允许近似，结果不作为精确 SKU 证明" : "必须保持真实 SKU 与尺寸关系";
+    const productionPrompt = [
+        "【参考视频复刻 / TVC 制作单】",
+        `平台：${platform}`,
+        `复刻范围：${scope}`,
+        `音频字幕：${audioSubtitle}`,
+        `商品信息：${productInfo}`,
+        `商品精度：${approximation}`,
+        "参考绑定：视频1负责镜头、动作与节奏；图片1起依次负责商品、人物和场景身份。不要复制参考片中的人物身份、商标、认证或未经证实的宣称。",
+        "",
+        prompt,
+    ].join("\n");
+    return generationFlowOps({
+        ...input,
+        mode: "video",
+        title: String(input.title || `${source.title || "参考视频"} TVC复刻`),
+        prompt: productionPrompt,
+        x: Number(input.x ?? source.position.x + source.width + 96),
+        y: Number(input.y ?? source.position.y),
+        size: input.size || source.metadata?.size,
+        seconds: input.seconds || source.metadata?.seconds,
+        videoMode: "reference",
+        referenceNodeIds: [...productNodeIds, ...characterNodeIds, ...sceneNodeIds, sourceId, ...audioNodeIds],
+        autoRun: false,
+    }, state);
 }
 
 /** 将导演台截图图片准备为视频首帧，生成仍由用户在网页中手动确认。 */
@@ -194,6 +243,19 @@ function generationTitle(mode: "text" | "image" | "video" | "audio") {
 /** 按节点 ID 查找当前画布节点。 */
 function findNode(state: CanvasSnapshot | null, id: string): CanvasNode | undefined {
     return (state?.nodes || []).find((node) => node.id === id);
+}
+
+function stringIds(value: unknown) {
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string" && Boolean(id)) : [];
+}
+
+function validateReferenceNodes(value: unknown, state: CanvasSnapshot | null, types: CanvasNodeType[], label: string) {
+    const ids = stringIds(value);
+    ids.forEach((id) => {
+        const node = findNode(state, id);
+        if (!node || !types.includes(node.type) || !node.metadata?.content) throw new Error(`${label}节点不可用：${id}`);
+    });
+    return ids;
 }
 
 /** 移除对象中未设置的生成参数。 */

@@ -17,6 +17,7 @@ description: 操作 Infinite Canvas 当前网页画布及画布插件，读取�
 - 需要批量增删改、移动、连接节点或设置视口时，使用 `canvas_apply_ops`。
 - 操作画布插件前先用 `canvas_list_plugin_nodes` 获取已启用节点类型和动作；用 `canvas_create_plugin_node` 按插件默认值创建，用 `canvas_update_node` 修改通用字段，用 `canvas_invoke_plugin_action` 调用插件明确开放的动作。
 - 用户要求把已有视频转成白模/白膜/灰盒动作参考时，使用 `canvas_create_white_model_video`。该工具只创建并连线待生成视频节点，不会自动扣费生成。
+- 用户要求参考视频复刻、TVC、同款广告或宣传片时，先确认已有内容的参考视频节点和至少一张用户商品图，并收集平台、比例、时长、复刻范围、音频字幕以及商品名称、SKU、颜色、真实尺寸和适配关系；然后使用 `canvas_create_reference_video_tvc` 创建制作单、视频配置和素材连线。没有真实商品信息时不得猜测，用户明确允许近似后才设置 `allowApproximate=true`。该工具不会自动扣费生成。
 - 不要模拟鼠标点击，不要要求用户手动复制 JSON。
 - 写入画布的操作会由网页侧边栏做二次确认，按当前工具结果继续推进即可。
 

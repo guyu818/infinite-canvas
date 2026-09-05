@@ -4217,6 +4217,22 @@ function InfiniteCanvasPage({ projectId }: { projectId: string }) {
                     onAngle={(node) => setAngleNodeId(node.id)}
                     onViewImage={(node) => setPreviewNodeId(node.id)}
                     onReversePrompt={createImageReversePromptNodes}
+                    onCreateReferenceVideoTvc={(node) => {
+                        const content = assistantReferenceContentFromNode(node);
+                        if (!content?.url) {
+                            message.error("请选择一个已有内容的视频节点");
+                            return;
+                        }
+                        setSelectedNodeIds(new Set([node.id]));
+                        setSelectedConnectionId(null);
+                        setAssistantMounted(true);
+                        setAgentPanel((current) => ({ ...current, open: true }));
+                        setInitialAgentRequest({
+                            prompt: "开启参考视频复刻 / TVC 流程。先检查商品图、复刻范围、平台、比例、时长、音频字幕和商品真实信息是否齐全；信息不足时一次性询问。现在只建立制作流程，不调用收费模型生成。",
+                            references: [{ id: node.id, type: node.type, title: node.title || "参考视频", label: "参考视频1", ...content }],
+                            skills: [],
+                        });
+                    }}
                     onCreateWhiteModelVideo={(node) => {
                         const next = applyLocalAgentOps(buildWhiteModelVideoOps(node, `video-${nanoid()}`));
                         setDialogNodeId(next.selectedNodeIds[0] || null);

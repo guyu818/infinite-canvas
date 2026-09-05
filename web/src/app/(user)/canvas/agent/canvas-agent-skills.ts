@@ -6,6 +6,7 @@ import { IMAGE_SKILL } from "./skills/image";
 import { IMAGE_CHARACTER_SHEET_SKILL } from "./skills/image-character-sheet";
 import { IMAGE_STORYBOARD_SKILL } from "./skills/image-storyboard";
 import { ORGANIZE_SKILL } from "./skills/organize";
+import { REFERENCE_VIDEO_TVC_SKILL } from "./skills/reference-video-tvc";
 import { SCRIPT_SKILL } from "./skills/script";
 import { VIDEO_SKILL } from "./skills/video";
 import { VIDEO_EDITING_SKILL } from "./skills/video-editing";
@@ -43,7 +44,10 @@ export function buildCanvasAgentSkillPrompt(phase: CanvasAgentPhase, userText: s
         const wantsVideo =
             phase === "video" ||
             selectedTypes.has("video") ||
-            /生成视频|做视频|视频生成|文生视频|图生视频|让.+动起来|动画化|渲染镜头|生成片段|视频续写|续写视频|编辑视频|修改视频|重绘视频|运镜|一镜到底/.test(intent);
+            /生成视频|做视频|视频生成|文生视频|图生视频|让.+动起来|动画化|渲染镜头|生成片段|视频续写|续写视频|编辑视频|修改视频|重绘视频|运镜|一镜到底|复刻视频|视频复刻|参考视频复刻|同款视频|TVC/.test(intent);
+        const wantsReferenceVideoTvc =
+            wantsVideo &&
+            /复刻视频|视频复刻|参考视频复刻|照着.+视频|同款视频|TVC|广告复刻|宣传片复刻|只复刻动作运镜|只复刻故事结构/.test(intent);
         const wantsExtension =
             wantsVideo &&
             (/续写|继续视频|接着视频|延长|下一段|后续片段|前传|向前补拍|补拍|连续片段|连续镜头|一镜到底|同机位|串行|链式/.test(intent) ||
@@ -72,6 +76,7 @@ export function buildCanvasAgentSkillPrompt(phase: CanvasAgentPhase, userText: s
             if (wantsVideoEdit) skills.push(VIDEO_EDITING_SKILL);
             if (wantsMultiShot) skills.push(VIDEO_MULTI_SHOT_SKILL);
             if (!wantsExtension && !wantsVideoEdit && !wantsMultiShot) skills.push(VIDEO_SINGLE_SHOT_SKILL);
+            if (wantsReferenceVideoTvc) skills.push(REFERENCE_VIDEO_TVC_SKILL);
         }
         if (wantsAudio) skills.push(AUDIO_SKILL);
         if (wantsOrganize) skills.push(ORGANIZE_SKILL);
